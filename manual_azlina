@@ -1,0 +1,124 @@
+#############################################
+#  sra download 			    #
+#############################################
+
+# https://trace.ncbi.nlm.nih.gov/Traces/sra/sra.cgi?cmd=dload&run_list=SRRXXXXX&format=fastq
+
+prefetch SRR10251449
+
+fastq-dump -I --split SRR10251449
+
+#############################################
+#  kmergenie   				   #
+############################################
+
+
+##### To change environment  
+
+     	conda activate solarpanel
+
+##### then command 
+     
+	echo "read1.fq read2.fq">filelist
+     
+	kmergenie filelist
+      
+
+################################################
+# bfc error correction 			       #
+################################################
+
+   	bfc -s 5m -k19 b30 -t16 read1.fastq > corrected_read1.fq
+
+      ### note:
+      # -s (estimated genome size)
+      # -t (thread)
+      # -k (kmer)
+      # we can use another read to correct one (code 2), read 2 is used to correct read 1.
+
+
+################################################################
+# Assemble -> ABySS, SOAPdenovo2, Platanus, Consensu sequence  #
+################################################################
+	
+	###   ABySS
+	abyss-pe name=fish k=19 v=-v j=16 in='reads_1.fq reads_2.fq' B=100G H=7 kc=3 > fish.log 2>&1
+
+	###   SOAPdenovo2
+	/home/genex/miniconda3/bin/SOAPdenovo-63mer all -s /home/genex/Documents/azlina/assemble/soapdenovo/raw/soap.config -K 19 -R -o whale 1>ass.log 2>ass.err
+
+	###    Platanus
+	Platanus assemble -o whale -f read1.fq read2.fq -t 16 -m 100 2> assemble.log
+	Platanus scaffold -o whale -c whale_contig.fa -b whale_contigBubble.fa -IP1 ./read1.fq ./read2.fq 2>scaffold_log.txt 
+
+	#    Note : 
+	#    tutorial link: https://colauttilab.github.io/NGS/deNovoTutorial.html
+	#    tutorial link: http://platanus.bio.titech.ac.jp/platanus-assembler/sample-page
+
+
+####################################################
+# bwa,samtools mapping and check sequence accuracy # 
+####################################################
+
+   	bwa mem -t 8 -R '@RG\tID:FISH21\tLB:FISH21\tPL:ILLUMINA\tSM:FISH21' ref.fa read_1.fq read_2.fq | samtools view -bS -o fish21.bam
+   
+	samtools sort -n fish21.bam -o fish21_sorted.bam
+ 
+  	#   note:
+  	#   remove suspected PCR duplication
+  	#  -m (include reads with number of CIGAR operations consuming
+
+     	samtools fixmate fish21_sorted.bam fish21_sorted_fixmate.bam
+
+	#   note:
+	#   remove suspected PCR duplication
+	
+	samtools sort fish21_sorted_fixmate.bam fish21_sorted_fixmate_position.bam
+
+	#   note:
+	#   sort by Coordinates
+
+	gatk ma
+
+	#   note:
+	#
+	#
+	#
+
+	samtools index fish21_sorted_fixmate_position_markdup.bam
+	
+	#   note:
+	#   index bam file
+
+	samtools flagstat fish21_sorted_fixmate_position_markdup.bam 
+
+	#   note:
+	#   Mapping stat.
+
+
+
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
